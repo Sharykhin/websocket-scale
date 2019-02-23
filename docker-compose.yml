@@ -2,27 +2,35 @@ version: "3"
 
 services:
   nsqlookupd:
-    container_name: nsqlookupd
     image: nsqio/nsq
     command: /nsqlookupd
     ports:
       - 4160:4160
       - 4161:4161
-      - 4150:4150
 
   nsqd:
-    container_name: nsqd
     image: nsqio/nsq
-    command: nsqd --lookupd-tcp-address=localhost:4160
+    command: /nsqd --lookupd-tcp-address=nsqlookupd:4160
     depends_on:
       - nsqlookupd
-
-  mongo:
-    container_name: mongo
-    image: mongo:3.4
-    command: mongod --dbpath /tmp/db
-    volumes:
-      - ./db:/tmp/db
     ports:
-      - 27018:27017
-      - 8081:8081
+      - 4150:4150
+      - 4151:4151
+
+  nsqadmin:
+    image: nsqio/nsq
+    command: /nsqadmin --lookupd-http-address nsqlookupd:4161
+    depends_on:
+      - nsqlookupd
+    ports:
+      - 4171:4171
+
+#  mongo:
+#    container_name: mongo
+#    image: mongo:3.4
+#    command: mongod --dbpath /tmp/db
+#    volumes:
+#      - ./db:/tmp/db
+#    ports:
+#      - 27018:27017
+#      - 8081:8081
