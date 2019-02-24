@@ -9,14 +9,84 @@
             crossorigin="anonymous"></script>
 </head>
 <body>
-<button>Connect to server 1</button>
-<button>Connect to server 2</button>
+<button id="btn1">Connect to server 1</button>
+<button id="btn2">Connect to server 2</button>
+<button id="btn3">Disconnect</button>
+<div></div>
+<form id="form">
+    <textarea id="msg"></textarea>
+    <div></div>
+    <button type="submit">Send</button>
+</form>
 
 <h4>Messages</h4>
-<textarea></textarea>
+<div id="messages">
+
+</div>
+
 <script>
     $(document).ready(function () {
-        console.log('hahaha');
+        var conn;
+        $('#form').submit(function (e) {
+            e.preventDefault();
+            msg = $('#msg').val();
+            console.log(msg);
+            $('#msg').val('');
+            conn.send(msg);
+        });
+        $('#btn1').click(function (event) {
+            event.preventDefault();
+
+            conn = new WebSocket("ws://localhost:8081");
+
+            conn.onopen = function (e) {
+                console.log('connection established', e);
+            };
+
+            conn.onmessage = function (e) {
+                console.log('got message', e);
+                $('#messages').append('<p>' + e.data + '</p>');
+            };
+
+            conn.onerror = function (e) {
+                console.warn('got error', e);
+            };
+
+            conn.onclose = function (e) {
+                console.log('closed', e);
+            }
+        });
+
+        $('#btn2').click(function (event) {
+            event.preventDefault();
+
+            conn = new WebSocket("ws://localhost:8082");
+
+            conn.onopen = function (e) {
+                console.log('connection established', e);
+            };
+
+            conn.onmessage = function (e) {
+                console.log('got message', e);
+                $('#messages').append('<p>' + e.data + '</p>');
+            };
+
+            conn.onerror = function (e) {
+                console.warn('got error', e);
+            };
+
+            conn.onclose = function (e) {
+                console.log('closed', e);
+            };
+        });
+
+        $('#btn3').click(function (e) {
+            e.preventDefault();
+            if (conn !== undefined) {
+                conn.close();
+                conn = undefined;
+            }
+        })
     });
 </script>
 </body>
