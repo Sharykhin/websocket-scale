@@ -30,3 +30,15 @@ message was send across the servers.
 To manage queue messages and channels use
 [http://localhost:4171/](http://localhost:4171/). It's a nsq
 admin panel
+
+
+Tested on docker:
+```
+ Version:          18.09.1
+  API version:      1.39 (minimum version 1.12)
+  Go version:       go1.10.6
+  Git commit:       4c52b90
+  Built:            Wed Jan  9 19:41:49 2019
+  OS/Arch:          linux/amd64
+  Experimental:     false
+```
