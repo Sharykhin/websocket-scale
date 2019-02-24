@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/bitly/go-nsq"
 	"github.com/gorilla/websocket"
-	"github.com/garyburd/redigo/redis"
 	"log"
 	"net/http"
 	"os"
@@ -22,7 +21,6 @@ var upgrader = websocket.Upgrader{
 } // use default options
 
 var connections map[*websocket.Conn]bool = make(map[*websocket.Conn]bool)
-var pool *redis.Pool
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	c, err := upgrader.Upgrade(w, r, nil)
@@ -33,8 +31,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	connections[c] = true
 	config := nsq.NewConfig()
 	p, _ := nsq.NewProducer("127.0.0.1:4150", config)
-	defer c.Close()
 	defer func() {
+		fmt.Println("closing websocket connection")
+		err := c.Close()
+		if err != nil {
+			log.Printf("could not close websocket connection safery: %v", err)
+		}
 		p.Stop()
 		delete(connections, c)
 	}()
@@ -45,6 +47,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		log.Printf("recive message from socket: %s", message)
+		// TODO: I am concerned that we able to send messages right here but need to send them through the queue.
 		//for conn, _ := range connections {
 		//	err = conn.WriteMessage(mt, message)
 		//	if err != nil {
@@ -53,29 +56,27 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		//	}
 		//}
 
-		conn := pool.Get()
-		fmt.Println("Publish message to redis")
-		_, err = conn.Do("PUBLISH", "chat", message)
+		fmt.Println("Publish message to nsq")
+		err = p.Publish("write_test", message)
 		if err != nil {
-			log.Panic("Could not publish message")
+			log.Panic("Could not connect")
 		}
-
-		//fmt.Println("Publish message to nsq")
-		//err = p.Publish("write_test", message)
-		//if err != nil {
-		//	log.Panic("Could not connect")
-		//}
 	}
 }
 
 func main() {
 	addr := flag.String("addr", ":8080", "http service address")
+	ch := flag.String("ch", "ch", "channel name for nsq consumer")
 	flag.Parse()
+
 	shutdown := make(chan os.Signal, 2)
 	signal.Notify(shutdown, syscall.SIGINT)
 
 	config := nsq.NewConfig()
-	q, _ := nsq.NewConsumer("write_test", "ch", config)
+	q, err := nsq.NewConsumer("write_test", *ch, config)
+	if err != nil {
+		log.Panicf("could not create a nsq consumer: %v", err)
+	}
 	q.AddHandler(nsq.HandlerFunc(func(message *nsq.Message) error {
 		log.Printf("Got a message from nsq: %v, %v", message, string(message.Body))
 		var err error
@@ -92,7 +93,7 @@ func main() {
 	go func() {
 		err := q.ConnectToNSQD("localhost:4150")
 		if err != nil {
-			log.Panic("Could not connect")
+			log.Panicf("Could not connect to nsq: %v", err)
 		}
 	}()
 
@@ -104,43 +105,6 @@ func main() {
 			case <-shutdown:
 				q.Stop()
 				log.Fatalln("Graceful shutdown")
-			}
-		}
-	}()
-
-	pool = &redis.Pool{
-		Dial: func() (redis.Conn, error) {
-			return redis.Dial("tcp", "localhost:6379")
-		},
-	}
-
-	conn := pool.Get()
-	defer conn.Close()
-
-	_, err := conn.Do("PING")
-	if err != nil {
-		log.Panicf("can't connect to the redis database, got error:\n%v", err)
-	}
-
-	go func() {
-		rc := pool.Get()
-		psc := redis.PubSubConn{Conn: rc}
-		fmt.Println("Subscribing on redis chat channel")
-		if err := psc.PSubscribe("chat"); err != nil {
-			log.Panicf("could noy subscribe: %v",err)
-		}
-
-		for {
-			switch v := psc.Receive().(type) {
-			case redis.PMessage:
-				fmt.Println("got message from redis")
-				for conn, _ := range connections {
-					err = conn.WriteMessage(websocket.TextMessage, v.Data)
-					if err != nil {
-						log.Println("write:", err)
-						break
-					}
-				}
 			}
 		}
 	}()

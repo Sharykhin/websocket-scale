@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -13,9 +14,10 @@ func main() {
 
 	shutdown := make(chan os.Signal, 2)
 	signal.Notify(shutdown, syscall.SIGINT)
-
+	ch := flag.String("ch", "ch", "channel name")
+	flag.Parse()
 	config := nsq.NewConfig()
-	q, _ := nsq.NewConsumer("write_test", "ch", config)
+	q, _ := nsq.NewConsumer("write_test", *ch, config)
 	q.AddHandler(nsq.HandlerFunc(func(message *nsq.Message) error {
 		log.Printf("Got a message: %v, %v", message, string(message.Body))
 		return nil
