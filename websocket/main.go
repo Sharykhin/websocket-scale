@@ -30,7 +30,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 	connections[c] = true
 	config := nsq.NewConfig()
-	p, _ := nsq.NewProducer("127.0.0.1:4150", config)
+	p, _ := nsq.NewProducer("nsqd:4150", config)
 	defer func() {
 		fmt.Println("closing websocket connection")
 		err := c.Close()
@@ -91,7 +91,7 @@ func main() {
 	}))
 
 	go func() {
-		err := q.ConnectToNSQD("localhost:4150")
+		err := q.ConnectToNSQD("nsqd:4150")
 		if err != nil {
 			log.Panicf("Could not connect to nsq: %v", err)
 		}

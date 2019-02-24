@@ -25,12 +25,37 @@ services:
     ports:
       - 4171:4171
 
-#  mongo:
-#    container_name: mongo
-#    image: mongo:3.4
-#    command: mongod --dbpath /tmp/db
-#    volumes:
-#      - ./db:/tmp/db
-#    ports:
-#      - 27018:27017
-#      - 8081:8081
+  web:
+    image: golang:1.10
+    command: /bin/bash -c "cd /go/src/web && go get ./... && go build -o web && ./web -addr=0.0.0.0:3000"
+    volumes:
+      - ./web:/go/src/web
+    ports:
+      - 3000:3000
+
+  build:
+    image: golang:1.10
+    entrypoint: /bin/bash -c "cd /go/src/websocket && go get ./... && go build -o websocket"
+    volumes:
+      - ./websocket:/go/src/websocket
+
+  socket1:
+    image: golang:1.10
+    command: /bin/bash -c "cd /go/src/websocket && go get ./... && ./websocket -addr=0.0.0.0:8081 -ch=srv1"
+    volumes:
+      - ./websocket:/go/src/websocket
+    depends_on:
+      - build
+      - nsqd
+    ports:
+      - 8081:8081
+  socket2:
+    image: golang:1.10
+    command: /bin/bash -c "cd /go/src/websocket && go get ./... && ./websocket -addr=0.0.0.0:8082 -ch=srv2"
+    volumes:
+      - ./websocket:/go/src/websocket
+    depends_on:
+      - build
+      - nsqd
+    ports:
+      - 8082:8082
